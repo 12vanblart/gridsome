@@ -4,7 +4,7 @@ const build = require('../build')
 const cheerio = require('cheerio')
 const express = require('express')
 const puppeteer = require('puppeteer')
-const { uniq } = require('lodash')
+const { trim, uniq } = require('lodash')
 
 const context = path.join(__dirname, '__fixtures__', 'project-basic')
 const content = file => fs.readFileSync(path.join(context, file), 'utf8')
@@ -40,7 +40,6 @@ test('build basic project', () => {
   // no objects should be rendered
   expect(indexHTML).not.toMatch('[object Object]')
 
-  expect($home('head > title').text()).toEqual('Gridsome | Test')
   expect($home('#app').data('server-rendered')).toEqual(true)
   expect($home('meta[name="keywords"]').attr('content')).toEqual('test')
   expect($home('meta[name="og:title"]').attr('content')).toEqual('bar')
@@ -56,6 +55,17 @@ test('build basic project', () => {
   expect($home('span.from-metadata').text()).toEqual('test')
   expect($home('.footer span.meta-data-1').text()).toEqual('Test Value')
   expect($home('.footer span.meta-data-2').text()).toEqual('bar')
+})
+
+test('set title in custom App.vue', () => {
+  const $home = load('dist/index.html')
+  expect($home('head > title').text()).toEqual('Gridsome [basic] | Test')
+})
+
+test('keep webpack hash if nothing has changed', () => {
+  const $home = load('dist/index.html')
+  const webpackHash = $home('meta[name="gridsome:hash"]').attr('content')
+  expect(webpackHash).toEqual('ca943480c78588804edef99645461019ddf34996')
 })
 
 test('render custom html template', () => {
@@ -81,7 +91,6 @@ test('render g-link components', () => {
 
   expect($home('a.g-link-1.is-active.active--exact').attr('href')).toEqual('/')
   expect($home('a.g-link-2.test-active.active--exact').attr('href')).toEqual('/')
-  expect($home('a.router-link.is-active.router-link-exact-active').attr('href')).toEqual('/')
 
   expect($home('a[href="http://outsidelink1.com"]').attr('target')).toEqual('_blank')
   expect($home('a[href="http://outsidelink1.com"]').attr('rel')).toEqual('noopener')
@@ -114,7 +123,7 @@ test('render g-image components', () => {
   expect($home('img.g-image-2 + noscript').html()).toMatch('alt="Test image"')
   expect($home('img.g-image-static').attr('src')).toEqual('/uploads/test.png')
   expect($home('img.g-image-static').attr('alt')).toEqual('Static image')
-  expect($home('img.g-image-immediate').attr('src')).toEqual('/assets/static/test.cbab2cf.test.png')
+  expect($home('img.g-image-immediate').attr('src')).toEqual('/assets/static/test.f64918e.test.png')
   expect($home('img.g-image-immediate').attr('alt')).toEqual('Immediate image')
   expect($home('img.g-image-external').attr('src')).toEqual('https://www.example.com/assets/image.png')
   expect($home('img.g-image-external').attr('alt')).toEqual('External image')
@@ -123,6 +132,13 @@ test('render g-image components', () => {
   // no duplicate classes
   const classes = $home('img.g-image-1').attr('class').split(' ')
   expect(uniq(classes).length - classes.length).toEqual(0)
+})
+
+test('render custom route meta', () => {
+  const appJS = content('dist/assets/js/app.js')
+
+  expect(appJS).toMatch('aboutUsMeta1: true')
+  expect(appJS).toMatch('$aboutUsMeta2: [1, 2, 3]')
 })
 
 test('render template with static routes', () => {
@@ -185,9 +201,8 @@ test('compile scripts correctly', () => {
 test('compile scripts includes polyfills', () => {
   const appJS = content('dist/assets/js/app.js')
 
-  expect(appJS).toMatch('core-js/modules/es6.promise.js')
-  expect(appJS).toMatch('core-js/modules/es6.symbol.js')
-  expect(appJS).toMatch('core-js/modules/es6.string.ends-with.js')
+  expect(appJS).toMatch('core-js/modules/es.promise.js')
+  expect(appJS).toMatch('core-js/modules/es.string.ends-with.js')
 })
 
 test('compile a single css file', () => {
@@ -267,6 +282,23 @@ test('navigate to /docs/2/extra', async () => {
 test('navigate to /pages/1', async () => {
   await page.click('.page-link-1')
   await page.waitForSelector('#app.page-template')
+})
+
+test('navigate to /', async () => {
+  await page.click('.home-link')
+  await page.waitForSelector('#app.home')
+})
+
+test('navigate to /custom-route/foo/bar', async () => {
+  await page.click('.custom-route')
+  await page.waitForSelector('#app.foo.bar')
+  await page.waitForSelector('.custom-child-route')
+
+  const title = await page.$eval('.custom-route-title', el => el.textContent)
+  const heading = await page.$eval('.custom-child-route-heading', el => el.textContent)
+
+  expect(trim(title)).toEqual('Gridsome')
+  expect(trim(heading)).toEqual('Gridsome')
 })
 
 test('navigate to /', async () => {

@@ -1,7 +1,7 @@
 const pMap = require('p-map')
 const axios = require('axios')
 const camelCase = require('camelcase')
-const { mapKeys, isPlainObject, trimEnd } = require('lodash')
+const { mapKeys, isPlainObject, trimEnd, trimStart } = require('lodash')
 
 const TYPE_AUTHOR = 'author'
 const TYPE_ATTACHEMENT = 'attachment'
@@ -13,7 +13,6 @@ class WordPressSource {
       apiBase: 'wp-json',
       perPage: 100,
       concurrent: 10,
-      routes: {},
       typeName: 'WordPress'
     }
   }
@@ -30,51 +29,50 @@ class WordPressSource {
       throw new Error(`${options.typeName}: perPage cannot be more than 100 or less than 1.`)
     }
 
+    this.customEndpoints = this.sanitizeCustomEndpoints()
+
     const baseUrl = trimEnd(options.baseUrl, '/')
 
     this.client = axios.create({
       baseURL: `${baseUrl}/${options.apiBase}`
     })
 
-    this.routes = {
-      post: '/:year/:month/:day/:slug',
-      post_tag: '/tag/:slug',
-      category: '/category/:slug',
-      author: '/author/:slug',
-      ...this.options.routes
-    }
+    this.routes = this.options.routes || {}
 
-    api.loadSource(async store => {
-      this.store = store
+    api.loadSource(async actions => {
+      this.store = actions
 
       console.log(`Loading data from ${baseUrl}`)
 
-      await this.getPostTypes(store)
-      await this.getUsers(store)
-      await this.getTaxonomies(store)
-      await this.getPosts(store)
+      await this.getPostTypes(actions)
+      await this.getUsers(actions)
+      await this.getTaxonomies(actions)
+      await this.getPosts(actions)
+      await this.getCustomEndpoints(actions)
     })
   }
 
-  async getPostTypes (store) {
+  async getPostTypes (actions) {
     const { data } = await this.fetch('wp/v2/types', {}, {})
+    const addCollection = actions.addCollection || actions.addContentType
 
     for (const type in data) {
       const options = data[type]
 
-      this.restBases.posts[type] = options.rest_base
+      this.restBases.posts[type] = trimStart(options.rest_base, '/')
 
-      store.addContentType({
+      addCollection({
         typeName: this.createTypeName(type),
-        route: this.routes[type] || `/${options.rest_base}/:slug`
+        route: this.routes[type]
       })
     }
   }
 
-  async getUsers (store) {
+  async getUsers (actions) {
     const { data } = await this.fetch('wp/v2/users')
+    const addCollection = actions.addCollection || actions.addContentType
 
-    const authors = store.addContentType({
+    const authors = addCollection({
       typeName: this.createTypeName(TYPE_AUTHOR),
       route: this.routes.author
     })
@@ -92,17 +90,18 @@ class WordPressSource {
     }
   }
 
-  async getTaxonomies (store) {
+  async getTaxonomies (actions) {
     const { data } = await this.fetch('wp/v2/taxonomies', {}, {})
+    const addCollection = actions.addCollection || actions.addContentType
 
     for (const type in data) {
       const options = data[type]
-      const taxonomy = store.addContentType({
+      const taxonomy = addCollection({
         typeName: this.createTypeName(type),
-        route: this.routes[type] || `/${options.rest_base}/:slug`
+        route: this.routes[type]
       })
 
-      this.restBases.taxonomies[type] = options.rest_base
+      this.restBases.taxonomies[type] = trimStart(options.rest_base, '/')
 
       const terms = await this.fetchPaged(`wp/v2/${options.rest_base}`)
 
@@ -112,14 +111,16 @@ class WordPressSource {
           title: term.name,
           slug: term.slug,
           content: term.description,
+          meta: term.meta,
           count: term.count
         })
       }
     }
   }
 
-  async getPosts (store) {
-    const { getContentType, createReference } = store
+  async getPosts (actions) {
+    const { createReference } = actions
+    const getCollection = actions.getCollection || actions.getContentType
 
     const AUTHOR_TYPE_NAME = this.createTypeName(TYPE_AUTHOR)
     const ATTACHEMENT_TYPE_NAME = this.createTypeName(TYPE_ATTACHEMENT)
@@ -127,7 +128,7 @@ class WordPressSource {
     for (const type in this.restBases.posts) {
       const restBase = this.restBases.posts[type]
       const typeName = this.createTypeName(type)
-      const posts = getContentType(typeName)
+      const posts = getCollection(typeName)
 
       const data = await this.fetchPaged(`wp/v2/${restBase}`)
 
@@ -146,14 +147,35 @@ class WordPressSource {
 
           if (post.hasOwnProperty(propName)) {
             const typeName = this.createTypeName(type)
-            const ref = createReference(typeName, post[propName])
             const key = camelCase(propName)
 
-            fields[key] = ref
+            fields[key] = Array.isArray(post[propName])
+              ? post[propName].map(id => createReference(typeName, id))
+              : createReference(typeName, post[propName])
           }
         }
 
         posts.addNode({ ...fields, id: post.id })
+      }
+    }
+  }
+
+  async getCustomEndpoints (actions) {
+    for (const endpoint of this.customEndpoints) {
+      const makeCollection = actions.addCollection || actions.addContentType
+      const cepCollection = makeCollection({
+        typeName: endpoint.typeName
+      })
+      const { data } = await this.fetch(endpoint.route, {}, {})
+      for (let item of data) {
+        if (endpoint.normalize) {
+          item = this.normalizeFields(item)
+        }
+
+        cepCollection.addNode({
+          ...item,
+          id: item.id || item.slug
+        })
       }
     }
   }
@@ -168,14 +190,11 @@ class WordPressSource {
         throw new Error(`${code} - ${config.url}`)
       }
 
-      const { url } = response.config
-      const { status } = response.data.data
-
-      if ([401, 403].includes(status)) {
-        console.warn(`Error: Status ${status} - ${url}`)
+      if ([401, 403].includes(response.status)) {
+        console.warn(`Error: Status ${response.status} - ${config.url}`)
         return { ...response, data: fallbackData }
       } else {
-        throw new Error(`${status} - ${url}`)
+        throw new Error(`${response.status} - ${config.url}`)
       }
     }
 
@@ -224,6 +243,20 @@ class WordPressSource {
 
       resolve(res.data)
     })
+  }
+
+  sanitizeCustomEndpoints () {
+    if (!this.options.customEndpoints) return []
+    if (!Array.isArray(this.options.customEndpoints)) throw Error('customEndpoints must be an array')
+    this.options.customEndpoints.forEach(endpoint => {
+      if (!endpoint.typeName) {
+        throw Error('Please provide a typeName option for all customEndpoints\n')
+      }
+      if (!endpoint.route) {
+        throw Error(`No route option in endpoint: ${endpoint.typeName}\n Ex: 'apiName/versionNumber/endpointObject'`)
+      }
+    })
+    return this.options.customEndpoints ? this.options.customEndpoints : []
   }
 
   normalizeFields (fields) {

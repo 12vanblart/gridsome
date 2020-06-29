@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.5.2](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/compare/@gridsome/source-contentful@0.5.1...@gridsome/source-contentful@0.5.2) (2019-12-13)
+
+
+### Bug Fixes
+
+* **contentful:** properly handle empty asset fields ([#866](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/issues/866)) ([546f5d1](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/commit/546f5d18f1c0c52c351e99921aa118e5830b9498))
+
+
+
+
+
+## [0.5.1](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/compare/@gridsome/source-contentful@0.5.0...@gridsome/source-contentful@0.5.1) (2019-09-17)
+
+
+### Bug Fixes
+
+* **contentful:** add resolvers with schema api ([55695c2](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/commit/55695c2))
+* **contentful:** remove default routes ([ac17eda](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/commit/ac17eda))
+
+
+
+
+
+# [0.5.0](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/compare/@gridsome/source-contentful@0.4.0...@gridsome/source-contentful@0.5.0) (2019-09-11)
+
+
+### Features
+
+* **contentful:** gridsome v0.7 support ([78ca5bf](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/commit/78ca5bf))
+
+
+
+
+
 # [0.4.0](https://github.com/gridsome/gridsome/tree/master/packages/source-contentful/compare/@gridsome/source-contentful@0.3.0...@gridsome/source-contentful@0.4.0) (2019-06-25)
 
 

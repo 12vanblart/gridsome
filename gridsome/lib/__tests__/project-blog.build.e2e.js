@@ -43,13 +43,13 @@ test('render pagination', () => {
   expect($blog('a.active--exact.active').attr('aria-current')).toEqual('true')
 
   expect($blog('.post-4 span').text()).toEqual('Fourth post')
-  expect($blog('.post-4 a').attr('href')).toEqual('/fourth-post')
+  expect($blog('.post-4 a').attr('href')).toEqual('/fourth-post/')
   expect($blog('.post-3 span').text()).toEqual('Third post')
-  expect($blog('.post-3 a').attr('href')).toEqual('/third-post')
+  expect($blog('.post-3 a').attr('href')).toEqual('/third-post/')
   expect($blog2('.post-2 span').text()).toEqual('Second post')
-  expect($blog2('.post-2 a').attr('href')).toEqual('/second-post')
+  expect($blog2('.post-2 a').attr('href')).toEqual('/second-post/')
   expect($blog2('.post-1 span').text()).toEqual('First post')
-  expect($blog2('.post-1 a').attr('href')).toEqual('/first-post')
+  expect($blog2('.post-1 a').attr('href')).toEqual('/first-post/')
 
   expect(exists('dist/category/first/3/index.html')).toBeFalsy()
   expect(exists('dist/3/index.html')).toBeFalsy()
@@ -85,14 +85,20 @@ test('render belongsTo with pagination', () => {
   expect($tag3('.post-3 a').text()).toEqual('Third post')
   expect($tag4('.post-3 a').text()).toEqual('Third post')
   expect($tag4('.post-2 a').text()).toEqual('Second post')
-  expect($tag4('nav[role="navigation"] a[href="/tag/fourth-tag"]').attr('aria-label')).toEqual('Current page. Page 1')
+  expect($tag4('nav[role="navigation"] a[href="/tag/fourth-tag/"]').attr('aria-label')).toEqual('Current page. Page 1')
   expect($tag4page2('.post-1 a').text()).toEqual('First post')
-  expect($tag4page2('nav[role="navigation"] a[href="/tag/fourth-tag/2"]').attr('aria-label')).toEqual('Current page. Page 2')
+  expect($tag4page2('nav[role="navigation"] a[href="/tag/fourth-tag/2/"]').attr('aria-label')).toEqual('Current page. Page 2')
   expect($category1('.post-3 a').text()).toEqual('Third post')
   expect($category1('.post-2 a').text()).toEqual('Second post')
-  expect($category1('nav[role="navigation"] a[href="/category/first"]').attr('aria-label')).toEqual('Current page. Page 1')
+  expect($category1('nav[role="navigation"] a[href="/category/first/"]').attr('aria-label')).toEqual('Current page. Page 1')
   expect($category1page2('.post-1 a').text()).toEqual('First post')
-  expect($category1page2('nav[role="navigation"] a[href="/category/first/2"]').attr('aria-label')).toEqual('Current page. Page 2')
+  expect($category1page2('nav[role="navigation"] a[href="/category/first/2/"]').attr('aria-label')).toEqual('Current page. Page 2')
+})
+
+test('keep webpack hash if nothing has changed', () => {
+  const $home = load('dist/index.html')
+  const webpackHash = $home('meta[name="gridsome:hash"]').attr('content')
+  expect(webpackHash).toEqual('e72b5a027a636e0431ea75d7f56cb2f573bbb969')
 })
 
 test('open blog in browser', async () => {

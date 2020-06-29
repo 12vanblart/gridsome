@@ -10,7 +10,6 @@ Vue.use(Meta, {
 })
 
 const head = {
-  title: config.siteName,
   titleTemplate: config.titleTemplate,
   __dangerouslyDisableSanitizers: ['style', 'script', 'noscript'],
   __dangerouslyDisableSanitizersByTagID: {},
@@ -38,15 +37,12 @@ const head = {
   link: []
 }
 
-if (config.siteDescription) {
-  head.meta.push({
-    key: 'description',
-    name: 'description',
-    content: config.siteDescription
-  })
+if (icons.favicons.length) {
+  // prevent unnecessary request for /favicon.ico
+  head.link.push({ rel: 'icon', href: 'data:,' })
 }
 
-icons.favicons.forEach(({ width, height, src: href }) => {
+icons.favicons.forEach(({ width, height = width, src: href }) => {
   head.link.push({
     rel: 'icon',
     type: icons.faviconMimeType,
@@ -55,7 +51,7 @@ icons.favicons.forEach(({ width, height, src: href }) => {
   })
 })
 
-icons.touchicons.forEach(({ width, height, src: href }) => {
+icons.touchicons.forEach(({ width, height = width, src: href }) => {
   head.link.push({
     rel: `apple-touch-icon${icons.precomposed ? '-precomposed' : ''}`,
     type: icons.touchiconMimeType,
